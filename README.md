@@ -47,7 +47,7 @@
 Основной поток обработки начинается с загрузки изображения и проходит через
 анализ изображения, поиск подходящих треков и формирование рекомендаций.
 
-![Схема взаимодействия модулей системы](docs/diagrams/Module Interaction.png)
+![Схема взаимодействия модулей системы](docs/diagrams/Module-Interaction.png)
 
 Подробные диаграммы находятся в каталоге `docs/diagrams`.
 
@@ -157,10 +157,10 @@ http://127.0.0.1:8000/docs
 │   ├── requirements.md
 │   └── diagrams/
 │       ├── Activity.png
-│       ├── Class Diagram.png
-│       ├── Module Interaction.png
+│       ├── Class-Diagram.png
+│       ├── Module-Interaction.png
 │       ├── Sequence.png
-│       └── Use Case.png
+│       └── Use-Case.png
 ├── src/
 │   ├── main.py
 │   └── static/
