@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Анализируем ваше изображение...</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            background-color: #f6f6f6;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #efefef;
+            border-top: 5px solid #1db954;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <h2>Нейросеть подбирает музыку...</h2>
+        <p>Это может занять около 20-25 секунд</p>
+    </div>
+
+    <script>
+        const taskId = "{{ task_id }}"; 
+        const checkStatus = setInterval(async () => {
+            try {
+                const response = await fetch(`/status/${taskId}`);
+                if (!response.ok) throw new Error("Server error");
+                
+                const data = await response.json();
+
+                if (data.status === 'completed') {
+                    clearInterval(checkStatus);
+                    window.location.href = `/result/${taskId}`;
+                } else if (data.status === 'error') {
+                    clearInterval(checkStatus);
+                    alert("Ошибка: " + (data.message || "неизвестная ошибка"));
+                    window.location.href = "/";
+                }
+            } catch (e) {
+                console.error("Connection error:", e);
+            }
+        }, 1500);
+    </script>
+</body>
+</html>

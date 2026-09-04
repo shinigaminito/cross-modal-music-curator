@@ -1,0 +1,290 @@
+openapi: 3.0.3
+info:
+  title: Cross-Modal Music Curator API
+  description: спецификация rest api системы интеллектуального сопоставления изображений и музыки.
+  version: 1.0.0
+paths:
+  /analyze:
+    post:
+      summary: загрузка изображения и инициализация фоновой задачи анализа
+      operationId: analyzeImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: графический файл формата jpeg или png (максимум 10 мб)
+      responses:
+        '200':
+          description: задача успешно создана, возвращается html страницы загрузки с task_id
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: неподдерживаемый формат файла или превышен лимит размера (10 мб)
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: критическая ошибка сервера при обработке загрузки
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /status/{task_id}:
+    get:
+      summary: опрос статуса выполнения фоновой задачи (polling)
+      operationId: getTaskStatus
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          description: уникальный идентификатор задачи анализа (uuid4)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: текущее состояние задачи
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    enum: [processing, completed, error, not_found]
+                    description: статус выполнения анализа
+                  message:
+                    type: string
+                    description: текст ошибки в случае сбоя инференса
+
+  /result/{task_id}:
+    get:
+      summary: получение html-страницы с результатами анализа и рекомендациями
+      operationId: getResultPage
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          description: уникальный идентификатор задачи анализа (uuid4)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: html-страница с визуализацией признаков и списком треков
+          content:
+            text/html:
+              schema:
+                type: string
+        '307':
+          description: перенаправление на главную страницу, если задача не найдена или не завершена
+
+  /rate:
+    post:
+      summary: сохранение пользовательской оценки релевантности подбора
+      operationId: submitRating
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+                - analysis_data
+                - tracks
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: пользовательская оценка от 1 до 5 звезд
+                analysis_data:
+                  $ref: '#/components/schemas/AnalysisMetrics'
+                tracks:
+                  type: array
+                  description: список рекомендованных музыкальных композиций
+                  items:
+                    $ref: '#/components/schemas/TrackItem'
+      responses:
+        '200':
+          description: оценка успешно сохранена в базу данных
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+        '400':
+          description: некорректное значение рейтинга
+        '500':
+          description: ошибка записи транзакции в базу данных
+
+  /download_card:
+    post:
+      summary: генерация и скачивание визуальной карточки плейлиста в формате jpeg
+      operationId: downloadVisualCard
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - tracks_data
+                - palette_data
+                - user_image
+              properties:
+                tracks_data:
+                  type: string
+                  description: json-строка со списком рекомендованных треков
+                palette_data:
+                  type: string
+                  description: json-строка с массивом hex-кодов палитры
+                user_image:
+                  type: string
+                  description: закодированное в base64 изображение пользователя (data-uri)
+      responses:
+        '200':
+          description: сгенерированное растровое изображение карточки 1080x1080
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename=music_card.jpg
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: поврежденные данные изображения в base64
+        '500':
+          description: ошибка фоновой графической отрисовки pillow
+
+  /download_csv:
+    post:
+      summary: экспорт сформированного плейлиста в формате csv
+      operationId: downloadCsvPlaylist
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - tracks_data
+              properties:
+                tracks_data:
+                  type: string
+                  description: json-строка со списком рекомендованных треков
+      responses:
+        '200':
+          description: табличный csv-файл с кодировкой utf-8-bom
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename=playlist.csv
+          content:
+            text/csv:
+              schema:
+                type: string
+        '303':
+          description: перенаправление на главную в случае отсутствия данных треков
+        '500':
+          description: ошибка сериализации таблицы
+
+components:
+  schemas:
+    AnalysisMetrics:
+      type: object
+      description: психоакустические и визуальные характеристики анализируемого изображения
+      properties:
+        mood:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: валентность (эмоциональный позитив)
+        energy:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: воспринимаемая интенсивность и динамика
+        danceability:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: ритмическая стабильность
+        acousticness:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: степень акустического звучания
+        instrumentalness:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: вероятность отсутствия вокала
+        hue:
+          type: number
+          format: float
+          description: средний цветовой тон в пространстве hsv (0.0 - 1.0)
+        saturation:
+          type: number
+          format: float
+          description: средняя цветовая насыщенность в пространстве hsv (0.0 - 1.0)
+        brightness:
+          type: number
+          format: float
+          description: средняя яркость в пространстве hsv (0.0 - 1.0)
+        description:
+          type: string
+          description: текстовая семантическая интерпретация сцены
+
+    TrackItem:
+      type: object
+      description: сущность рекомендованной музыкальной композиции
+      properties:
+        track_id:
+          type: string
+          description: идентификатор трека
+        track_name:
+          type: string
+          description: название композиции
+        artist_name:
+          type: string
+          description: имя исполнителя
+        genre:
+          type: string
+          description: жанровая категория
+        popularity:
+          type: number
+          description: индекс популярности композиции
+        similarity:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: интегральный расчетный коэффициент сходства с изображением

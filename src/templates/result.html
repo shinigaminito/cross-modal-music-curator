@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система подбора музыки по изображению — Ваш плейлист</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        .palette-container {
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        .palette-description {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .palette-grid {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .palette-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .color-tag {
+            font-size: 10px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .header-main { flex: 1; text-align: left; }
+        .header-match { width: 65px; text-align: right; }
+
+        .track-list {
+            margin-top: 0;
+        }
+
+        .track-item:last-child {
+            border-bottom: none;
+        }
+
+        .track-info-labels {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .label-artist { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .label-divider { color: #ddd; font-size: 12px; }
+        
+        .genre-label {
+            background: #f0f0f0;
+            color: #777;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="content-wrapper">
+        <div class="card">
+            <div class="image-preview-box" id="result-preview" onclick="openModal()">
+                <img src="{{ user_image }}" alt="Ваше изображение" id="source-image">
+            </div>
+        
+        <div class="ai-explanation-card" style="background: rgba(255, 255, 255, 0.03); border-radius: 16px; padding: 24px; border: 1px solid var(--border-color); margin: 25px 0;">
+            
+            <h2 style="margin-top: 30px; margin-bottom: 0;">Результаты анализа</h2>
+            <p style="color: var(--text-muted); font-size: 14px; font-style: italic; margin-top: 8px; line-height: 1.4;">
+                Интерпретация: «{{ analysis.description }}»
+            </p>
+
+            <div class="palette-container">
+                <p class="palette-description">Цветовая палитра</p>
+                <div class="palette-grid">
+                    {% for hex in palette %}
+                    <div class="palette-item">
+                        <div class="color-circle" style="background: {{ hex }}; margin: 0;"></div>
+                        <span class="color-tag">{{ hex|upper }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px; margin-top: 25px;">
+                <h3 class="palette-description" style="margin: 0; text-align: center;">
+                    Цветовая модель HSV
+                </h3>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                
+                <div class="stat-item" style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Тон (Hue)</span>
+                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">
+                        {{ analysis.hue_degrees }}°
+                    </div>
+                </div>
+                
+                <div class="stat-item" style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Насыщенность (Saturation)</span>
+                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">
+                        {{ analysis.saturation_pct }}%
+                    </div>
+                </div>
+
+                <div class="stat-item" style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Яркость (Value)</span>
+                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">
+                        {{ analysis.brightness_pct }}%
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="track-list-header">
+            <div class="header-main">Композиция, автор и жанр</div>
+            <div class="header-match">Релевантность</div>
+            <div class="header-action">Ссылки</div>
+        </div>
+
+        <div class="track-list">
+                {% for track in tracks %}
+                <div class="track-item">
+                    <div class="track-info">
+                        <span class="track-name">{{ track.track_name }}</span>
+                        <div class="track-info-labels">
+                            <span class="label-artist">{{ track.artist_name }}</span>
+                            <span class="label-divider">•</span>
+                            <span class="genre-label">
+                                {{ track.genre if track.genre and track.genre|lower != 'nan' else '—' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: center;">
+                        <div class="match-badge">
+                            {{ "%.0f"|format(track.similarity * 100) }}%
+                        </div>
+                    </div>
+
+                    <div class="links-group">
+                        <a href="https://www.youtube.com/results?search_query={{ track.artist_name|urlencode }}+{{ track.track_name|urlencode }}" 
+                        target="_blank" class="service-link yt" title="YouTube">YT</a>
+                        
+                        <a href="https://open.spotify.com/search/{{ track.artist_name|urlencode }}%20{{ track.track_name|urlencode }}" 
+                        target="_blank" class="service-link sp" title="Spotify">SP</a>
+                        
+                        <a href="https://music.yandex.ru/search?text={{ track.artist_name|urlencode }}%20{{ track.track_name|urlencode }}" 
+                        target="_blank" class="service-link ym" title="Яндекс Музыка">ЯМ</a>
+                        
+                        <a href="https://vk.com/music?q={{ track.artist_name|urlencode }}%20{{ track.track_name|urlencode }}" 
+                        target="_blank" class="service-link vk" title="VK Музыка">VK</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 25px; display: flex; flex-direction: column; gap: 10px;">
+                <form action="/download_csv" method="post">
+                    <input type="hidden" name="tracks_data" value="{{ tracks | tojson | forceescape }}">
+                    <button type="submit" class="btn-secondary">
+                        Экспорт данных в CSV
+                    </button>
+                </form>
+                
+                <form action="/download_card" method="post">
+                    <input type="hidden" name="tracks_data" value="{{ tracks | tojson | forceescape }}">
+                    <input type="hidden" name="palette_data" value='{{ palette | tojson }}'>
+                    <input type="hidden" name="user_image" value='{{ user_image }}'>
+                    <button type="submit" class="btn-secondary" style="background-color: var(--text-main); color: #fff; border: none;">
+                        Экспорт визуальной карточки данных
+                    </button>
+                </form>
+
+                <a href="/" class="btn" style="width: 100%; text-align: center;">Вернуться на главную</a>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="rating-wrapper">
+        <div class="rating-card" id="rating-container">
+            <div id="rating-interactive-zone" class="rating-content">
+                <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 10px;">Оцените релевантность подбора</h3>
+                <div class="rating-stars">
+                    <span class="star" data-value="5">★</span>
+                    <span class="star" data-value="4">★</span>
+                    <span class="star" data-value="3">★</span>
+                    <span class="star" data-value="2">★</span>
+                    <span class="star" data-value="1">★</span>
+                </div>
+            </div>
+
+            <div id="rating-status" style="font-weight: 600; color: var(--spotify-green);"></div>
+        </div>
+    </div>
+
+    <footer class="main-footer">
+        <div class="footer-placeholder">
+            © 2026 Интеллектуальная система кросс–модального подбора музыкальных композиций на основе визуального анализа изображений.
+        </div>
+    </footer>
+
+    <div id="image-modal" class="modal" onclick="closeModal(event)">
+        <span class="modal-close" onclick="closeModal(event, true)">&times;</span>
+        <img class="modal-content" id="full-image">
+    </div>
+
+    <script>
+        const modal = document.getElementById('image-modal');
+        const fullImg = document.getElementById('full-image');
+        const sourceImg = document.getElementById('source-image');
+
+        function openModal() {
+            if (sourceImg.src) {
+                modal.classList.add('open');
+                fullImg.src = sourceImg.src;
+                document.body.style.overflow = "hidden";
+            }
+        }
+
+        function closeModal(e, force = false) {
+            if (force || e.target === modal) {
+                modal.classList.remove('open');
+                document.body.style.overflow = "auto";
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === "Escape" && modal.classList.contains('open')) {
+                closeModal(null, true);
+            }
+        });
+    </script>
+
+    <script>
+    document.querySelectorAll('.star').forEach(star => {
+        star.addEventListener('click', async function() {
+            const rating = this.dataset.value;
+            const starsContainer = document.querySelector('.rating-stars');
+            const statusText = document.getElementById('rating-status');
+            const interactiveZone = document.getElementById('rating-interactive-zone');
+
+            document.querySelectorAll('.star').forEach(s => s.classList.remove('selected'));
+            this.classList.add('selected');
+
+            statusText.innerText = "Сохранение оценки...";
+            
+            try {
+                const analysisData = {{ analysis | tojson | safe }};
+                const tracksData = {{ tracks | tojson | safe }};
+
+                const payload = {
+                    rating: parseInt(rating),
+                    analysis_data: analysisData,
+                    tracks: tracksData
+                };
+
+                const response = await fetch('/rate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    interactiveZone.style.opacity = "0.5";
+                    interactiveZone.style.pointerEvents = "none";
+                    
+                    statusText.innerHTML = `
+                        <div style="padding: 15px 0; animation: fadeIn 0.5s ease;">
+                            <div style="font-size: 16px; font-weight: 700; color: #1db954;">
+                                Оценка ${rating} из 5 принята!
+                            </div>
+                            <div style="font-size: 13px; color: #535353; margin-top: 5px;">
+                                Спасибо, это поможет обучать нейросеть.
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error("Rating Error:", error);
+                statusText.innerText = "Ошибка соединения";
+                statusText.style.color = "#ff4d4d";
+            }
+        });
+    });
+    </script>
+</body>
+</html>
