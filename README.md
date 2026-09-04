@@ -148,20 +148,30 @@ http://127.0.0.1:8000/docs
 
 ```text
 .
-├── src/
-│   ├── main.py
-│   └── music.db
 ├── db/
+│   ├── README.md
+│   ├── music.db
 │   └── schema.sql
 ├── docs/
 │   ├── openapi.yaml
+│   ├── requirements.md
 │   └── diagrams/
-│       ├── use_case.png
-│       ├── activity_pipeline.png
-│       ├── sequence_main.png
-│       └── domain_classes.png
-├── requirements.txt
-└── README.md
+│       ├── Activity.png
+│       ├── Class Diagram.png
+│       ├── Module Interaction.png
+│       ├── Sequence.png
+│       └── Use Case.png
+├── src/
+│   ├── main.py
+│   └── static/
+│       └── style.css
+│   └── templates/
+│       ├── index.html
+│       ├── loading.html
+│       └── result.html
+├── .gitignore
+├── README.md
+└── requirements.txt
 ```
 
 ## Технологии
